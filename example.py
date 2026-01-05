@@ -5,6 +5,7 @@ os.environ['SPCONV_ALGO'] = 'native'        # Can be 'native' or 'auto', default
                                             # Recommended to set to 'native' if run only once.
 
 import imageio
+import torch
 from PIL import Image
 from trellis.pipelines import TrellisImageTo3DPipeline
 from trellis.utils import render_utils, postprocessing_utils
@@ -16,10 +17,16 @@ pipeline.cuda()
 # Load an image
 image = Image.open("assets/example_image/T.png")
 
+# Define coarse prior (Dummy Box for demonstration)
+coarse_prior = torch.zeros((1, 64, 64, 64), device='cuda')
+coarse_prior[:, :16, :16, :16] = 1.0
+coarse_prior = coarse_prior.unsqueeze(1)  # add channel dim
+
 # Run the pipeline
 outputs = pipeline.run(
     image,
     seed=1,
+    coarse_prior=coarse_prior,
     # Optional parameters
     # sparse_structure_sampler_params={
     #     "steps": 12,

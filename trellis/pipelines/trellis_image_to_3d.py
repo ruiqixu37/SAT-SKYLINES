@@ -164,6 +164,7 @@ class TrellisImageTo3DPipeline(Pipeline):
         cond: dict,
         num_samples: int = 1,
         sampler_params: dict = {},
+        coarse_prior = None,
     ) -> torch.Tensor:
         """
         Sample sparse structures with the given conditioning.
@@ -175,6 +176,7 @@ class TrellisImageTo3DPipeline(Pipeline):
         """
         # Sample occupancy latent
         flow_model = self.models['sparse_structure_flow_model']
+        encoder = self.models['sparse_structure_encoder']
         reso = flow_model.resolution
         noise = torch.randn(num_samples, flow_model.in_channels, reso, reso, reso).to(self.device)
         sampler_params = {**self.sparse_structure_sampler_params, **sampler_params}
@@ -183,7 +185,9 @@ class TrellisImageTo3DPipeline(Pipeline):
             noise,
             **cond,
             **sampler_params,
-            verbose=True
+            verbose=True,
+            encoder=encoder,
+            coarse_prior=coarse_prior,
         ).samples
         
         # Decode occupancy latent
@@ -261,6 +265,7 @@ class TrellisImageTo3DPipeline(Pipeline):
         slat_sampler_params: dict = {},
         formats: List[str] = ['mesh', 'gaussian', 'radiance_field'],
         preprocess_image: bool = True,
+        coarse_prior = None,
     ) -> dict:
         """
         Run the pipeline.
@@ -278,7 +283,7 @@ class TrellisImageTo3DPipeline(Pipeline):
             image = self.preprocess_image(image)
         cond = self.get_cond([image])
         torch.manual_seed(seed)
-        coords = self.sample_sparse_structure(cond, num_samples, sparse_structure_sampler_params)
+        coords = self.sample_sparse_structure(cond, num_samples, sparse_structure_sampler_params, coarse_prior)
         slat = self.sample_slat(cond, coords, slat_sampler_params)
         return self.decode_slat(slat, formats)
 

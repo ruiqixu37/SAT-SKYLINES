@@ -105,7 +105,20 @@ class FlowEulerSampler(Sampler):
             - 'pred_x_t': a list of prediction of x_t.
             - 'pred_x_0': a list of prediction of x_0.
         """
-        sample = noise
+        encoder = kwargs.get("encoder", None)
+        assert encoder is not None, "SAT-SKYLINES requires an encoder to process the coarse geoemtry prior."
+        coarse_prior = kwargs.get("coarse_prior", None)
+        assert coarse_prior is not None, "The input coarse prior is empty."
+        # coarse_prior needs to have shape [B, C, R, R, R]. R = 64 in the pretrained TRELLIS model.
+        assert len(coarse_prior.shape) == 5, "The coarse prior needs to have shape [B, C, R, R, R]."
+
+        lambda_val = kwargs.get("lambda_val", 1.0) # default is to ignore the prior
+        fp_latent = encoder(coarse_prior)
+        # SS Latent Normalization
+        fp_latent = (fp_latent - fp_latent.mean(dim=1, keepdim=True)) / (fp_latent.std(dim=1, keepdim=True) + 1e-5)
+        # Cosine Geometric Interpolation
+        sample = noise * np.sin(lambda_val * np.pi / 2) + fp_latent * np.cos(lambda_val * np.pi / 2)
+        
         t_seq = np.linspace(1, 0, steps + 1)
         t_seq = rescale_t * t_seq / (1 + (rescale_t - 1) * t_seq)
         t_pairs = list((t_seq[i], t_seq[i + 1]) for i in range(steps))
